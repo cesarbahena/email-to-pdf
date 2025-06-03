@@ -1,0 +1,30 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+*.wasm
+*.o
+*.cgo1.go
+*.cgo2.c
+*.cgo2.h
+_testdata/
+
+# Generated files
+*.out
+email-to-pdf # The executable for this project
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE-specific files
+.idea/
+.vscode/
+.DS_Store
+
+# Oauth2 credentials
+credentials.json
+token.json
