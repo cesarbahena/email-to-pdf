@@ -1,7 +1,7 @@
 package main
 
-import "fmt"
+import "email-to-pdf/internal/cmd"
 
 func main() {
-	fmt.Println("Hello, World!")
+	cmd.Execute()
 }
