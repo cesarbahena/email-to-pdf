@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -31,72 +30,20 @@ func getClient(config *oauth2.Config) *http.Client {
 
 // Request a token from the web, then returns the retrieved token.
 func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
-	// Start local server to receive OAuth callback
-	codeChan := make(chan string)
-
-	server := &http.Server{Addr: ":8080"}
-	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		code := r.URL.Query().Get("code")
-		if code == "" {
-			http.Error(w, "No code in URL", http.StatusBadRequest)
-			return
-		}
-
-		fmt.Fprintf(w, "<html><body><h1>Authentication Successful!</h1><p>You can close this window and return to the terminal.</p></body></html>")
-		codeChan <- code
-	})
-
-	go func() {
-		if err := server.ListenAndServe(); err != http.ErrServerClosed {
-			log.Printf("Server error: %v", err)
-		}
-	}()
-
-	// Update config to use the callback URL
-	config.RedirectURL = "http://localhost:8080/callback"
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	fmt.Printf("Go to the following link in your browser then type the " +
+		"authorization code: \n%v\n", authURL)
 
-	fmt.Printf("\n===========================================\n")
-	fmt.Printf("Opening browser for authentication...\n")
-	fmt.Printf("If browser doesn't open, visit this URL:\n%v\n", authURL)
-	fmt.Printf("===========================================\n\n")
-
-	// Try to open browser automatically
-	openBrowser(authURL)
-
-	// Wait for code
-	authCode := <-codeChan
-
-	// Shutdown server
-	server.Shutdown(context.Background())
+	var authCode string
+	if _, err := fmt.Scan(&authCode); err != nil {
+		log.Fatalf("Unable to read authorization code: %v", err)
+	}
 
 	tok, err := config.Exchange(context.TODO(), authCode)
 	if err != nil {
 		log.Fatalf("Unable to retrieve token from web: %v", err)
 	}
 	return tok
-}
-
-// openBrowser tries to open the URL in a browser
-func openBrowser(url string) {
-	var err error
-	switch {
-	case fileExists("/usr/bin/xdg-open"):
-		err = exec.Command("xdg-open", url).Start()
-	case fileExists("/usr/bin/open"):
-		err = exec.Command("open", url).Start()
-	default:
-		return
-	}
-	if err != nil {
-		log.Printf("Failed to open browser: %v", err)
-	}
-}
-
-// fileExists checks if a file exists
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }
 
 // Retrieves a token from a local file.
@@ -135,9 +82,29 @@ func GetService() *gmail.Service {
 	}
 	client := getClient(config)
 
-	srv, err := gmail.New(client)
+	srv, err := gmail.NewService(context.Background(), client)
 	if err != nil {
 		log.Fatalf("Unable to retrieve Gmail client: %v", err)
 	}
 	return srv
+}
+
+// GetMessages fetches a list of Gmail messages filtered by a query.
+func GetMessages(srv *gmail.Service, query string) ([]*gmail.Message, error) {
+	var messages []*gmail.Message
+	msgReq := srv.Users.Messages.List("me").Q(query)
+	err := msgReq.Pages(context.Background(), func(resp *gmail.ListMessagesResponse) error {
+		for _, m := range resp.Messages {
+			msg, err := srv.Users.Messages.Get("me", m.Id).Do()
+			if err != nil {
+				return fmt.Errorf("unable to retrieve message: %v", err)
+			}
+			messages = append(messages, msg)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve messages: %v", err)
+	}
+	return messages, nil
 }

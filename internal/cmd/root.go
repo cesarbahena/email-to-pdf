@@ -21,6 +21,17 @@ to quickly create a Cobra application.`,
 		srv := gmail.GetService()
 		if srv != nil {
 			fmt.Println("Successfully connected to Gmail API")
+			messages, err := gmail.GetMessages(srv, "has:attachment filename:pdf")
+			if err != nil {
+				log.Fatalf("Unable to get messages: %v", err)
+			}
+			for _, msg := range messages {
+				for _, header := range msg.Payload.Headers {
+					if header.Name == "Subject" {
+						fmt.Printf("Subject: %s\n", header.Value)
+					}
+				}
+			}
 		}
 	},
 }
