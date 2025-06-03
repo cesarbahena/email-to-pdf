@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -145,4 +147,39 @@ func GetAttachments(srv *gmail.Service, message *gmail.Message) ([]Attachment, e
 	}
 
 	return attachments, nil
+}
+
+// FormatFilename formats the filename based on the provided pattern and message details.
+func FormatFilename(message *gmail.Message, originalFilename, pattern string) string {
+	formattedFilename := pattern
+
+	// Extract subject
+	subject := ""
+	for _, header := range message.Payload.Headers {
+		if header.Name == "Subject" {
+			subject = header.Value
+			break
+		}
+	}
+
+	// Extract date
+	date := ""
+	for _, header := range message.Payload.Headers {
+		if header.Name == "Date" {
+			parsedTime, err := time.Parse(time.RFC1123Z, header.Value) // Example: Mon, 23 Dec 2025 12:34:56 -0600
+			if err == nil {
+				date = parsedTime.Format("2006-01-02") // YYYY-MM-DD
+			}
+			break
+		}
+	}
+
+	// Replace placeholders
+	formattedFilename = strings.ReplaceAll(formattedFilename, "{id}", message.Id)
+	formattedFilename = strings.ReplaceAll(formattedFilename, "{subject}", subject)
+	formattedFilename = strings.ReplaceAll(formattedFilename, "{date}", date)
+	formattedFilename = strings.ReplaceAll(formattedFilename, "{original_filename}", originalFilename)
+
+
+	return formattedFilename
 }

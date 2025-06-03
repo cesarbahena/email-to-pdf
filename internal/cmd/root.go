@@ -52,13 +52,13 @@ to quickly create a Cobra application.`,
 					continue
 				}
 				for _, att := range attachments {
-					// Placeholder for dynamic naming based on pattern
-					finalFilename := fmt.Sprintf("%s/%s", outputDir, att.Filename) // Will be replaced by dynamic naming
-					err := os.WriteFile(finalFilename, att.Data, 0644)
+					newFilename := gmail.FormatFilename(msg, att.Filename, namingPattern)
+					filePath := fmt.Sprintf("%s/%s", outputDir, newFilename)
+					err := os.WriteFile(filePath, att.Data, 0644)
 					if err != nil {
-						log.Printf("Unable to save attachment %s: %v", att.Filename, err)
+						log.Printf("Unable to save attachment %s: %v", newFilename, err)
 					} else {
-						fmt.Printf("Saved attachment: %s\n", finalFilename)
+						fmt.Printf("Saved attachment: %s\n", filePath)
 					}
 				}
 			}
