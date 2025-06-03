@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -30,20 +31,72 @@ func getClient(config *oauth2.Config) *http.Client {
 
 // Request a token from the web, then returns the retrieved token.
 func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
-	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the " +
-		"authorization code: \n%v\n", authURL)
+	// Start local server to receive OAuth callback
+	codeChan := make(chan string)
 
-	var authCode string
-	if _, err := fmt.Scan(&authCode); err != nil {
-		log.Fatalf("Unable to read authorization code: %v", err)
-	}
+	server := &http.Server{Addr: ":8080"}
+	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		code := r.URL.Query().Get("code")
+		if code == "" {
+			http.Error(w, "No code in URL", http.StatusBadRequest)
+			return
+		}
+
+		fmt.Fprintf(w, "<html><body><h1>Authentication Successful!</h1><p>You can close this window and return to the terminal.</p></body></html>")
+		codeChan <- code
+	})
+
+	go func() {
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			log.Printf("Server error: %v", err)
+		}
+	}()
+
+	// Update config to use the callback URL
+	config.RedirectURL = "http://localhost:8080/callback"
+	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+
+	fmt.Printf("\n===========================================\n")
+	fmt.Printf("Opening browser for authentication...\n")
+	fmt.Printf("If browser doesn't open, visit this URL:\n%v\n", authURL)
+	fmt.Printf("===========================================\n\n")
+
+	// Try to open browser automatically
+	openBrowser(authURL)
+
+	// Wait for code
+	authCode := <-codeChan
+
+	// Shutdown server
+	server.Shutdown(context.Background())
 
 	tok, err := config.Exchange(context.TODO(), authCode)
 	if err != nil {
 		log.Fatalf("Unable to retrieve token from web: %v", err)
 	}
 	return tok
+}
+
+// openBrowser tries to open the URL in a browser
+func openBrowser(url string) {
+	var err error
+	switch {
+	case fileExists("/usr/bin/xdg-open"):
+		err = exec.Command("xdg-open", url).Start()
+	case fileExists("/usr/bin/open"):
+		err = exec.Command("open", url).Start()
+	default:
+		return
+	}
+	if err != nil {
+		log.Printf("Failed to open browser: %v", err)
+	}
+}
+
+// fileExists checks if a file exists
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // Retrieves a token from a local file.
@@ -76,7 +129,7 @@ func GetService() *gmail.Service {
 	}
 
 	// If modifying these scopes, delete your previously saved token.json.
-	config, err := google.ConfigFromJSON(b, gmail.ReadonlyScope)
+	config, err := google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
