@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -12,6 +13,7 @@ import (
 var (
 	outputDir       string
 	namingPattern   string
+	month           string
 )
 
 var rootCmd = &cobra.Command{
@@ -36,7 +38,8 @@ to quickly create a Cobra application.`,
 				}
 			}
 
-			messages, err := gmail.GetMessages(srv, "has:attachment filename:pdf")
+			query := fmt.Sprintf("has:attachment filename:pdf after:%s-01 before:%s-31", month, month)
+			messages, err := gmail.GetMessages(srv, query)
 			if err != nil {
 				log.Fatalf("Unable to get messages: %v", err)
 			}
@@ -75,6 +78,8 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "output", "Output directory for PDF files")
-	rootCmd.PersistentFlags().StringVarP(&namingPattern, "name-pattern", "n", "{id}-{subject}", "Naming pattern for PDF files")
+	rootCmd.PersistentFlags().StringVarP(&namingPattern, "name-pattern", "n", "{date}_{id}_{subject}_{original_filename}", "Naming pattern for PDF files")
+	rootCmd.PersistentFlags().StringVarP(&month, "month", "m", time.Now().Format("2006-01"), "Month to filter emails by (YYYY-MM)")
 }
+
 
