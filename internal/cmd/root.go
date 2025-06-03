@@ -9,6 +9,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	outputDir       string
+	namingPattern   string
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "email-to-pdf-organizer",
 	Short: "A brief description of your application",
@@ -22,6 +27,15 @@ to quickly create a Cobra application.`,
 		srv := gmail.GetService()
 		if srv != nil {
 			fmt.Println("Successfully connected to Gmail API")
+
+			// Ensure output directory exists
+			if _, err := os.Stat(outputDir); os.IsNotExist(err) {
+				err = os.MkdirAll(outputDir, 0755)
+				if err != nil {
+					log.Fatalf("Unable to create output directory %s: %v", outputDir, err)
+				}
+			}
+
 			messages, err := gmail.GetMessages(srv, "has:attachment filename:pdf")
 			if err != nil {
 				log.Fatalf("Unable to get messages: %v", err)
@@ -38,12 +52,13 @@ to quickly create a Cobra application.`,
 					continue
 				}
 				for _, att := range attachments {
-					filePath := fmt.Sprintf("tmp_attachments/%s", att.Filename)
-					err := os.WriteFile(filePath, att.Data, 0644)
+					// Placeholder for dynamic naming based on pattern
+					finalFilename := fmt.Sprintf("%s/%s", outputDir, att.Filename) // Will be replaced by dynamic naming
+					err := os.WriteFile(finalFilename, att.Data, 0644)
 					if err != nil {
 						log.Printf("Unable to save attachment %s: %v", att.Filename, err)
 					} else {
-						fmt.Printf("Saved attachment: %s\n", filePath)
+						fmt.Printf("Saved attachment: %s\n", finalFilename)
 					}
 				}
 			}
@@ -57,3 +72,9 @@ func Execute() {
 		os.Exit(1)
 	}
 }
+
+func init() {
+	rootCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "output", "Output directory for PDF files")
+	rootCmd.PersistentFlags().StringVarP(&namingPattern, "name-pattern", "n", "{id}-{subject}", "Naming pattern for PDF files")
+}
+
