@@ -28,3 +28,6 @@ go.work
 # Oauth2 credentials
 credentials.json
 token.json
+
+# Temporary attachments
+tmp_attachments/

@@ -32,6 +32,20 @@ to quickly create a Cobra application.`,
 						fmt.Printf("Subject: %s\n", header.Value)
 					}
 				}
+				attachments, err := gmail.GetAttachments(srv, msg)
+				if err != nil {
+					log.Printf("Unable to get attachments for message %s: %v", msg.Id, err)
+					continue
+				}
+				for _, att := range attachments {
+					filePath := fmt.Sprintf("tmp_attachments/%s", att.Filename)
+					err := os.WriteFile(filePath, att.Data, 0644)
+					if err != nil {
+						log.Printf("Unable to save attachment %s: %v", att.Filename, err)
+					} else {
+						fmt.Printf("Saved attachment: %s\n", filePath)
+					}
+				}
 			}
 		}
 	},

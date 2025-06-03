@@ -2,6 +2,7 @@ package gmail
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,6 +15,12 @@ import (
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
 )
+
+// Attachment represents a file attachment with its filename and data.
+type Attachment struct {
+	Filename string
+	Data     []byte
+}
 
 // Retrieve a token, saves the token, then returns the generated client.
 func getClient(config *oauth2.Config) *http.Client {
@@ -108,4 +115,34 @@ func GetMessages(srv *gmail.Service, query string) ([]*gmail.Message, error) {
 		return nil, fmt.Errorf("unable to retrieve messages: %v", err)
 	}
 	return messages, nil
+}
+
+// GetAttachments extracts PDF attachments from a Gmail message.
+func GetAttachments(srv *gmail.Service, message *gmail.Message) ([]Attachment, error) {
+	var attachments []Attachment
+
+	if message.Payload.Parts == nil {
+		return attachments, nil
+	}
+
+	for _, part := range message.Payload.Parts {
+		if part.MimeType == "application/pdf" && part.Filename != "" {
+			att, err := srv.Users.Messages.Attachments.Get("me", message.Id, part.Body.AttachmentId).Do()
+			if err != nil {
+				return nil, fmt.Errorf("unable to retrieve attachment: %v", err)
+			}
+
+			data, err := base64.URLEncoding.DecodeString(att.Data)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode attachment data: %v", err)
+			}
+
+			attachments = append(attachments, Attachment{
+				Filename: part.Filename,
+				Data:     data,
+			})
+		}
+	}
+
+	return attachments, nil
 }
