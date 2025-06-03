@@ -3,6 +3,7 @@ package cmd
 import (
 	"email-to-pdf/internal/gmail"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
