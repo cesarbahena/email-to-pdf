@@ -27,6 +27,7 @@ go.work
 
 # Oauth2 credentials
 credentials.json
+credentials.json:Zone.Identifier
 token.json
 
 # Temporary attachments
